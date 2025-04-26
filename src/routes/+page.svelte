@@ -1,2 +1,15 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<script lang="ts">
+    let teste = $state(0);
+
+    setInterval(() => teste++, 1000)
+</script>
+
+<h1>Teste123</h1>
+<p>{teste}</p>
+<p>😄</p>
+
+<style>
+    p {
+        color: blue;
+    }
+</style>
