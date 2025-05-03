@@ -10,7 +10,7 @@ WS_PORT = 8765
 latest_value = None
 clients = set()
 
-# TCP handler for ESP32
+# Cuida da conexão da ESP32
 def handle_esp32(conn, addr):
     global latest_value
     print(f"[TCP] Nova conexão de {addr}")
@@ -23,7 +23,7 @@ def handle_esp32(conn, addr):
             latest_value = data.decode().strip()
             print(f"[TCP] Recebido de {addr}: {latest_value}")
 
-# Start TCP server
+# Inicia servidor TCP (ESP32)
 def start_tcp_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, TCP_PORT))
@@ -34,7 +34,7 @@ def start_tcp_server():
             thread = threading.Thread(target=handle_esp32, args=(conn, addr), daemon=True)
             thread.start()
 
-# WebSocket handler for frontend
+# WebSocket do frontend
 async def ws_handler(websocket):
     print("[WS] Cliente conectado")
     clients.add(websocket)
@@ -49,13 +49,12 @@ async def ws_handler(websocket):
         clients.remove(websocket)
         print("[WS] Cliente desconectado")
 
-# Start WebSocket server
+# Inicia WebSocket
 async def start_websocket_server():
     print(f"[WS] Servidor WebSocket em ws://{HOST}:{WS_PORT}")
     async with websockets.serve(ws_handler, HOST, WS_PORT):
-        await asyncio.Future()  # run forever
+        await asyncio.Future()
 
-# Run both TCP and WebSocket
 def main():
     tcp_thread = threading.Thread(target=start_tcp_server, daemon=True)
     tcp_thread.start()

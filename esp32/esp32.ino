@@ -47,7 +47,6 @@ void setup() {
 }
 
 void loop() {
-  // Reading potentiometer value
   potValue = analogRead(potPin);
   Serial.println(potValue);
 
