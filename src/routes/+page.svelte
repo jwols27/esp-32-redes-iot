@@ -27,9 +27,11 @@
 </p>
 <p>{clima.current.condition.text} - {clima.current.humidity}% de umidade</p>
 
-<label for="umidade"><span style:color={cor}>{value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%</span> de umidade</label>
-<br/>
-<progress id="umidade" {value} max="100"> 32% </progress> 
+<label for="umidade">
+	<span style:color={cor}>{value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%</span>
+	<span> de umidade</span></label>
+<br />
+<progress id="umidade" {value} max="100"> 32%</progress>
 
 
 <style>

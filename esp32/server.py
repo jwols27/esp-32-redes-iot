@@ -4,24 +4,24 @@ import asyncio
 import websockets
 import paho.mqtt.client as mqtt
 
-HOST = '0.0.0.0'  # Listen on all interfaces
+HOST = "0.0.0.0"
 TCP_PORT = 65432
 WS_PORT = 8765
 
-# MQTT config
-MQTT_BROKER = 'localhost'
+# Configurações MQTT
+MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
-MQTT_TOPIC = 'sensors/pot'
-MQTT_USER = 'projeto'
-MQTT_PASS = 'proj'
+MQTT_TOPIC = "sensors/pot"
+MQTT_USER = "projeto"
+MQTT_PASS = "proj"
 
-latest_value = None
+ultimo_valor = None
 clients = set()
 
-# --- TCP (ESP32) ---
 
+# --- TCP (ESP32) ---
 def handle_esp32(conn, addr):
-    global latest_value
+    global ultimo_valor
     print(f"[TCP] Nova conexão de {addr}")
     with conn:
         while True:
@@ -29,68 +29,78 @@ def handle_esp32(conn, addr):
             if not data:
                 print(f"[TCP] Conexão encerrada por {addr}")
                 break
-            latest_value = data.decode().strip()
-            print(f"[TCP] Recebido de {addr}: {latest_value}")
+            ultimo_valor = data.decode().strip()
+            print(f"[TCP] Recebido de {addr}: {ultimo_valor}")
 
-def start_tcp_server():
+
+def inicia_servidor_tcp():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, TCP_PORT))
         s.listen()
         print(f"[TCP] Servidor ouvindo em {HOST}:{TCP_PORT}")
         while True:
             conn, addr = s.accept()
-            thread = threading.Thread(target=handle_esp32, args=(conn, addr), daemon=True)
+            thread = threading.Thread(
+                target=handle_esp32, args=(conn, addr), daemon=True
+            )
             thread.start()
 
+
 # --- MQTT ---
-
 def on_message(client, userdata, msg):
-    global latest_value
-    latest_value = msg.payload.decode()
-    print(f"[MQTT] Recebido: {latest_value}")
+    global ultimo_valor
+    ultimo_valor = msg.payload.decode()
+    print(f"[MQTT] Recebido: {ultimo_valor}")
 
-def start_mqtt():
+
+def inicia_mqtt():
     print(f"[MQTT] Servidor ouvindo em {MQTT_BROKER}:{MQTT_PORT}")
-    client = mqtt.Client()
-    client.username_pw_set(MQTT_USER, MQTT_PASS)
-    client.on_message = on_message
-    client.connect(MQTT_BROKER, MQTT_PORT)
-    client.subscribe(MQTT_TOPIC)
-    client.loop_start()
+    try:
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        client.username_pw_set(MQTT_USER, MQTT_PASS)
+        client.on_message = on_message
+        client.connect(MQTT_BROKER, MQTT_PORT)
+        client.subscribe(MQTT_TOPIC)
+        client.loop_start()
+    except Exception as e:
+        print(f"[MQTT] Erro: {e}")
+
 
 # --- WebSocket (Frontend) ---
-
+# Tanto o TCP quanto o MQTT usam o WebSocket para enviar informações
 async def ws_handler(websocket):
     print("[WS] Cliente conectado")
     clients.add(websocket)
     try:
         while True:
             await asyncio.sleep(0.5)
-            if latest_value is not None:
-                await websocket.send(latest_value)
+            if ultimo_valor is not None:
+                await websocket.send(ultimo_valor)
     except websockets.ConnectionClosed:
         pass
     finally:
         clients.remove(websocket)
         print("[WS] Cliente desconectado")
 
-async def start_websocket_server():
+
+async def inicia_servidor_websocket():
     print(f"[WS] Servidor WebSocket em ws://{HOST}:{WS_PORT}")
     async with websockets.serve(ws_handler, HOST, WS_PORT):
         await asyncio.Future()
 
-# --- Main ---
 
+# --- Main ---
 def main():
-    # Start TCP in separate thread
-    tcp_thread = threading.Thread(target=start_tcp_server, daemon=True)
+    # Inicia MQTT
+    inicia_mqtt()
+
+    # Inicia servidor TCP em uma thread separada
+    tcp_thread = threading.Thread(target=inicia_servidor_tcp, daemon=True)
     tcp_thread.start()
 
-    # Start MQTT
-    start_mqtt()
+    # Inicia Websocket
+    asyncio.run(inicia_servidor_websocket())
 
-    # Start WebSocket loop
-    asyncio.run(start_websocket_server())
 
 if __name__ == "__main__":
     main()

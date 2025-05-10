@@ -1,13 +1,13 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-const char* ssid = "Ana";   // Nome da rede WiFi
-const char* password = "98126124";    // Senha da rede WiFi
+const char* ssid = "Ana";           // Nome da rede WiFi
+const char* password = "98126124";  // Senha da rede WiFi
 
-const char* serverAddress = "192.168.119.9";  // Endereço IP do servidor
-const int serverPort = 65432;                 // Porta do servidor
+const char* serverAddress = "192.168.119.9";    // Endereço IP do servidor
+const int serverPort = 65432;                   // Porta do servidor
 
-const char* mqtt_server = serverAddress; // Change to your broker's IP
+const char* mqtt_server = serverAddress;    // IP do broker MQTT
 
 // MQTT credentials
 const char* mqtt_user = "projeto";
@@ -33,10 +33,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void conectarMQTT() {
   Serial.println("Conectando ao MQTT...");
   if (mosClient.connect("ESP32Client", mqtt_user, mqtt_pass)) {
-    Serial.println("Conectado MQTT.");
-    mosClient.subscribe("test/topic"); // Subscribe to your topic here
+    Serial.println("MQTT Conectado!");
   } else {
-    Serial.print("falhou, rc=");
+    Serial.print("Falha na conexão MQTT! rc=");
     Serial.print(mosClient.state());
   }
 }
@@ -48,11 +47,11 @@ bool conectarHTTP() {
     // Tenta conectar ao servidor
     Serial.println("Conectando ao servidor HTTP...");
     if (client.connect(serverAddress, serverPort)) {
-      Serial.println("Conectado!");
+      Serial.println("HTTP Conectado!");
       return true;
     } 
     else {
-      Serial.println("Falha na conexão!");
+      Serial.println("Falha na conexão HTTP!");
       delay(100);
       return false;
     }
@@ -84,6 +83,7 @@ void setup() {
 
   mosClient.setServer(mqtt_server, 1883);
   mosClient.setCallback(callback);
+  Serial.println("Coletando umidade...");
 }
 
 void loop() {
