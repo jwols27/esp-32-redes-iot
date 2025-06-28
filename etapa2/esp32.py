@@ -6,7 +6,7 @@ import time
 import onewire
 import ds18x20
 
-# === Hardware setup ===
+# Pinos
 pino_umidade = ADC(Pin(34))
 pino_umidade.atten(ADC.ATTN_11DB)
 
@@ -14,10 +14,13 @@ pino_temperatura = Pin(33)
 ow = onewire.OneWire(pino_temperatura)
 ds = ds18x20.DS18X20(ow)
 
-# === Configuração Wi-Fi e MQTT ===
+# Wi-Fi
 WIFI_SSID = "visitantes"
 WIFI_PASS = ""
 
+wlan = network.WLAN(network.STA_IF)
+
+# MQTT
 MQTT_BROKER = "172.20.165.147"
 MQTT_PORT = 1883
 MQTT_USER = "projeto"
@@ -25,12 +28,9 @@ MQTT_PASS = "proj"
 
 TOPICO_PREFIXO = "esp32"
 
-# === Globais compartilhadas ===
 mqtt_client = None
 mqtt_lock = _thread.allocate_lock()
-wlan = network.WLAN(network.STA_IF)
 
-# === Funções ===
 def conectar_wifi():
     if not wlan.isconnected():
         print(f"Wi-Fi - Conectando na rede [{WIFI_SSID}]...")
@@ -82,7 +82,7 @@ def loop_temperatura():
             reconectar_mqtt()
 
         ds.convert_temp()
-        time.sleep_ms(750)
+        time.sleep(10)
         temperatura = ds.read_temp(rom)
         publicar(temperatura, "temperatura")
         time.sleep(1)
@@ -104,7 +104,7 @@ def main():
     reconectar_mqtt()
 
     _thread.start_new_thread(loop_temperatura, ())
-    loop_umidade()  # Main thread runs humidity loop
+    loop_umidade()
 
 main()
 
