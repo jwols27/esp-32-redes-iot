@@ -3,70 +3,108 @@ import network
 from umqtt.simple import MQTTClient
 from machine import ADC, Pin
 import time
+import onewire
+import ds18x20
 
+# === Hardware setup ===
 pino_umidade = ADC(Pin(34))
 pino_umidade.atten(ADC.ATTN_11DB)
 
+pino_temperatura = Pin(33)
+ow = onewire.OneWire(pino_temperatura)
+ds = ds18x20.DS18X20(ow)
+
+# === Configuração Wi-Fi e MQTT ===
 WIFI_SSID = "visitantes"
 WIFI_PASS = ""
 
-MQTT_BROKER = "172.20.163.175"
+MQTT_BROKER = "172.20.165.147"
 MQTT_PORT = 1883
 MQTT_USER = "projeto"
 MQTT_PASS = "proj"
 
 TOPICO_PREFIXO = "esp32"
 
-def conectar_wifi(wlan):
-    print(f"Wi-Fi - Conectando na rede [{WIFI_SSID}]...")
-    wlan.connect(WIFI_SSID, WIFI_PASS)
-    while not wlan.isconnected():
-        print(".")
-        time.sleep(0.5)
-    print("Wi-Fi conectado:", wlan.ifconfig())
+# === Globais compartilhadas ===
+mqtt_client = None
+mqtt_lock = _thread.allocate_lock()
+wlan = network.WLAN(network.STA_IF)
 
-def publicar(client: MQTTClient, valor, topico: str):
+# === Funções ===
+def conectar_wifi():
+    if not wlan.isconnected():
+        print(f"Wi-Fi - Conectando na rede [{WIFI_SSID}]...")
+        wlan.connect(WIFI_SSID, WIFI_PASS)
+        while not wlan.isconnected():
+            print(".", end="")
+            time.sleep(0.5)
+        print("\nWi-Fi conectado:", wlan.ifconfig())
+
+def reconectar_mqtt():
+    global mqtt_client
+    with mqtt_lock:
+        try:
+            mqtt_client = MQTTClient("esp32", MQTT_BROKER, user=MQTT_USER, password=MQTT_PASS, port=MQTT_PORT)
+            mqtt_client.connect()
+            print("MQTT reconectado.")
+        except Exception as e:
+            print("Erro ao reconectar MQTT:", e)
+
+def publicar(valor, topico: str):
+    global mqtt_client
     topic = bytes(f"{TOPICO_PREFIXO}/{topico}", "utf-8")
     try:
-        client.publish(topic, str(valor))
-        print(f"{topico.capitalize()} -> {valor}")
+        with mqtt_lock:
+            mqtt_client.publish(topic, str(valor))
+        print(f"{topico} -> {valor}")
     except OSError:
-        print("Conexão MQTT perdida, reconectando...")
+        print("Erro de conexão MQTT. Tentando reconectar...")
+        reconectar_mqtt()
         try:
-            client.connect()
-            client.publish(topic, str(valor))
+            with mqtt_lock:
+                mqtt_client.publish(topic, str(valor))
         except Exception as e:
-            print(f"Falha ao reconectar e publicar {topico}: {e}")
+            print(f"Falha ao publicar {topico} após reconectar: {e}")
     except Exception as e:
         print(f"Falha ao publicar {topico}: {e}")
 
-def publicar_temperatura():
-    client = MQTTClient("esp32_temp", MQTT_BROKER, user=MQTT_USER, password=MQTT_PASS, port=MQTT_PORT)
-    client.connect()
-    while True:
-        temperatura = 0  # ler_sensor()
-        publicar(client, temperatura, "temperatura")
-        time.sleep(10)
-
-def publicar_umidade(wlan):
-    client = MQTTClient("esp32_umid", MQTT_BROKER, user=MQTT_USER, password=MQTT_PASS, port=MQTT_PORT)
-    client.connect()
+def loop_temperatura():
+    roms = ds.scan()
+    if not roms:
+        print("Nenhum sensor DS18B20 encontrado!")
+        return
+    rom = roms[0]
 
     while True:
         if not wlan.isconnected():
-            print("Conexão Wi-Fi perdida.")
-            conectar_wifi(wlan)
+            print("Wi-Fi (temperatura) desconectado. Reconectando...")
+            conectar_wifi()
+            reconectar_mqtt()
+
+        ds.convert_temp()
+        time.sleep_ms(750)
+        temperatura = ds.read_temp(rom)
+        publicar(temperatura, "temperatura")
+        time.sleep(1)
+
+def loop_umidade():
+    while True:
+        if not wlan.isconnected():
+            print("Wi-Fi (umidade) desconectado. Reconectando...")
+            conectar_wifi()
+            reconectar_mqtt()
 
         umidade = pino_umidade.read()
-        publicar(client, umidade, "umidade")
-        time.sleep(0.1)
+        publicar(umidade, "umidade")
+        time.sleep(0.5)
 
 def main():
-    wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
-    conectar_wifi(wlan)
+    conectar_wifi()
+    reconectar_mqtt()
 
-    _thread.start_new_thread(publicar_temperatura, ())
-    publicar_umidade(wlan)
+    _thread.start_new_thread(loop_temperatura, ())
+    loop_umidade()  # Main thread runs humidity loop
 
 main()
+
