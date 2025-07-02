@@ -65,7 +65,8 @@
         "y": 120,
         "wires": [
             [
-                "6ec3f9eda22a28bc"
+                "6ec3f9eda22a28bc",
+                "2f337d763fcb8996"
             ]
         ]
     },
@@ -104,6 +105,49 @@
         "wires": [
             [
                 "6ec3f9eda22a28bc"
+            ]
+        ]
+    },
+    {
+        "id": "2f337d763fcb8996",
+        "type": "function",
+        "z": "64ab4eb8dc279b95",
+        "name": "sendAlexa",
+        "func": "let ultima_umi = flow.get(\"ultima_umi\") || 999;\n\nmsg.action = \"currentTemperature\";\nmsg.deviceId = \"\";\nmsg.value = {\n    \"humidity\": ultima_umi,\n    \"temperature\": parseFloat(msg.payload.temperatura)\n};\ndelete msg.payload;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 830,
+        "y": 100,
+        "wires": [
+            [
+                "f137d362547fa5f2"
+            ]
+        ]
+    },
+    {
+        "id": "f137d362547fa5f2",
+        "type": "event",
+        "z": "64ab4eb8dc279b95",
+        "x": 1030,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "ec4223c9bb0a5cbd",
+        "type": "device",
+        "z": "64ab4eb8dc279b95",
+        "name": "ESP32",
+        "appcredential": "",
+        "deviceid": "",
+        "x": 680,
+        "y": 40,
+        "wires": [
+            [
+                "2f337d763fcb8996"
             ]
         ]
     },
